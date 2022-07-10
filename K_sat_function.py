@@ -19,7 +19,7 @@ import torch
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 #%%
-from model import bert_model, gpt2_model, gpt2_tokenizer, translator
+from model import bert_model, gpt2_model, gpt2_tokenizer, kw_model, translator
 
 #%%
 f = open("/home/my_qg/testset/2.txt","r")
@@ -50,7 +50,8 @@ def paraphrasing_by_transe(summary:list, midpoint='zh-cn')->list:
 #%%
 def transe_kor(str:list)->list:
     kor=[]
-    for sentence in summary:
+    for sentence in str:
+        # print(sentence)
         kor.append(translator.translate(sentence, src='en', dest='ko').text)
     return kor
 #%%
@@ -162,9 +163,9 @@ def get_sentence_completions(key_sentences):
 
     return sentence_completion_dict
 # # %%
-# a=summary(passage)
-# print(a)
-# # %%
-# print(paraphrasing_by_transe(a))
-
+def get_title(passage:list, max_word=5):
+    result=[]
+    for sentence in passage:
+        result.append(kw_model.extract_keywords(sentence, keyphrase_ngram_range=(1,max_word), stop_words='english')[0][0])
+    return result
 # %%
