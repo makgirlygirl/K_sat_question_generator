@@ -3,8 +3,13 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+# import random
+from difflib import SequenceMatcher
+
 import benepar
+import requests
 import scipy
+from bs4 import BeautifulSoup
 from nltk import tokenize
 from sumy.nlp.stemmers import Stemmer
 from sumy.nlp.tokenizers import Tokenizer
@@ -76,8 +81,6 @@ def sort_by_similarity(original_sentence, generated_sentences_list):
                 dissimilar_sentences.append(generated_sentences_list[idx].strip())
            
     sorted_dissimilar_sentences = sorted(dissimilar_sentences, key=len)
-    # print('sorted_dissimilar_sentences\n\n')
-    # print(sorted_dissimilar_sentences)
     return sorted_dissimilar_sentences[:2]
 
 def generate_sentences(partial_sentence,full_sentence):
@@ -163,9 +166,85 @@ def get_sentence_completions(key_sentences):
 
     return sentence_completion_dict
 # # %%
-def get_title(passage:list, max_word=5):
+def get_keyword_list(passage, max_word_cnt,top_n)->list:
     result=[]
-    for sentence in passage:
-        result.append(kw_model.extract_keywords(sentence, keyphrase_ngram_range=(1,max_word), stop_words='english')[0][0])
+    if type(passage)==list:
+        for sentence in passage:
+            keyword_score=kw_model.extract_keywords(sentence, keyphrase_ngram_range=(1,max_word_cnt), stop_words='english', top_n=top_n)
+    elif type(passage)==str:
+        keyword_score=kw_model.extract_keywords(passage, keyphrase_ngram_range=(1, max_word_cnt), stop_words='english', top_n=top_n)
+    for keyword in keyword_score:
+        result.append(keyword[0])
     return result
 # %%
+# def get_keyword(passage:str, max_word=2):
+#     result=[]
+#     keywords = kw_model.extract_keywords(passage, keyphrase_ngram_range=(1, max_word), top_n=50, stop_words='english')
+#     for kw in keywords:
+#     #     if kw[1]>0.5:
+#             result.append(kw[0])
+#     return result
+def word_similarity(a, b):
+    return SequenceMatcher(None, a, b).ratio()
+#%%
+def _get_soup_object(url, parser="html.parser"):
+    headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.84 Safari/537.36',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    }
+    return BeautifulSoup(requests.get(url,headers=headers).text, parser)
+
+class word_dict(object):
+    def __init__(self, *args):
+        try:
+            if isinstance(args[0], list):
+                self.args = args[0]
+            else:
+                self.args = args
+        except:
+            self.args = args
+    
+    def getSynonyms(self, num_word, formatted=False):
+        return [self.synonym(term, num_word, formatted) for term in self.args]
+        
+    def getAntonyms(self,num_word, formatted=False):
+            return [self.antonym(term, num_word, formatted) for term in self.args]
+
+    def synonym(self, term, num_word, formatted=False):
+        if len(term.split()) > 1:
+            print("Error: A Term must be only a single word")
+        else:
+            try:
+                data = _get_soup_object("https://www.powerthesaurus.org/"+term+"/synonyms")
+                section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
+                synonyms=[s.text.strip() for s in section]
+                print(synonyms)
+                if formatted:
+                    return {term: synonyms}
+                return synonyms
+            except: None
+
+    def antonym(self, term, num_word, formatted=False):
+        if len(term.split()) > 1:
+            print(term)
+            print("Error: A Term must be only a single word")
+        else:
+            try:
+                data = _get_soup_object("https://www.powerthesaurus.org/"+term+"/antonyms")
+                section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
+                antonyms=[s.text.strip() for s in section]
+                if formatted:
+                    return {term: antonyms}
+                return antonyms
+            except:None
+
+def get_synonym_list(word:str, num_word)->list:
+    dictionary=word_dict(word.split())
+    synonym= dictionary.getSynonyms(num_word=num_word)
+    return synonym
+
+## 나중에 랜덤으로 뽑앙서 하나만 바꾸는걸로 바꿔보자..
+def get_antonym_list(word:str, num_word)->list:
+    dictionary=word_dict(word.split())
+    antonym= dictionary.getAntonyms(num_word=num_word)
+    return antonym

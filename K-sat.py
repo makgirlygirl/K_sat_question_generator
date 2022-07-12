@@ -29,6 +29,20 @@ q1_distractors=q1.distractors(q1_sent_completion_dict)
 q1_dict_kor=q1.make_dict(passageID, q1_question_type, q1_question, q1_paraphrase, q1_distractors,is_Korean=True)
 q1_dict_eng=q1.make_dict(passageID, q1_question_type, q1_question, q1_paraphrase, q1_distractors)
 
+print(q1_dict_kor)
+print(q1_dict_eng)
 
 # %%
 # 26-28, 45(내용 일치/불일치): 영어 보기
+q2=Q2()
+q2_question_type=2
+q2_list=['적절한', '적절하지 않은']
+q2_question=[f'윗글에 관한 내용으로 가장 {random.choice(q2_list)} 것은?']
+q2_summarize=q2.summarize(passage)
+q2_paraphrase=q2.paraphrase(q2_summarize)
+q2_distractors=q2.distractors(q2_paraphrase)
+q2_dict=q2.make_dict(passageID, q2_question_type, q2_question, q2_paraphrase, q2_distractors)
+
+print(q2_dict)
+
+#%%
