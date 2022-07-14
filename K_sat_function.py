@@ -3,6 +3,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import json
 # import random
 from difflib import SequenceMatcher
 
@@ -55,9 +56,13 @@ def paraphrasing_by_transe(summary:list, midpoint='zh-cn')->list:
 #%%
 def transe_kor(str:list)->list:
     kor=[]
+    # print(str)
+    # print('\n\n')
     for sentence in str:
-        # print(sentence)
-        kor.append(translator.translate(sentence, src='en', dest='ko').text)
+        k_sentence=translator.translate(sentence, src='en', dest='ko').text
+        # print(k_sentence)
+        # print(type(k_sentence))# str
+        kor.append(k_sentence)
     return kor
 #%%
 def sort_by_similarity(original_sentence, generated_sentences_list):
@@ -167,12 +172,14 @@ def get_sentence_completions(key_sentences):
     return sentence_completion_dict
 # # %%
 def get_keyword_list(passage, max_word_cnt,top_n)->list:
+    keyword_score=[]
     result=[]
+
     if type(passage)==list:
         for sentence in passage:
-            keyword_score=kw_model.extract_keywords(sentence, keyphrase_ngram_range=(1,max_word_cnt), stop_words='english', top_n=top_n)
+            keyword_score.append(kw_model.extract_keywords(sentence, keyphrase_ngram_range=(1,max_word_cnt), stop_words='english', top_n=top_n)[0])
     elif type(passage)==str:
-        keyword_score=kw_model.extract_keywords(passage, keyphrase_ngram_range=(1, max_word_cnt), stop_words='english', top_n=top_n)
+        keyword_score.append(kw_model.extract_keywords(passage, keyphrase_ngram_range=(1, max_word_cnt), stop_words='english', top_n=top_n)[0])
     for keyword in keyword_score:
         result.append(keyword[0])
     return result
