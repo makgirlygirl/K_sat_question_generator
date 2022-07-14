@@ -1,6 +1,7 @@
 #%%
 ## import package
 import random
+from hashlib import new
 
 import torch
 from keybert import KeyBERT
@@ -14,6 +15,12 @@ import re
 #%%
 from model import bert_model, gpt2_model, gpt2_tokenizer
 
+#%%
+###### 나중에 지울거
+
+f = open("/home/my_qg/testset/2.txt","r")
+passageID=2
+passage = f.read()
 #%%
 question_dict_sample={'passageID':None,
                 'question_type':None,
@@ -221,14 +228,89 @@ q2_dict=q2.make_dict(passageID, q2_question_type, q2_question, q2_paraphrase, q2
 print(q2_dict)
 '''
 
-
-#%%
+#%% fin
 ## 36-37, 43(순서(ABC)): 영어 보기
-#%%test q3
+class Q3:
+    def __init__(self):
+        None
+    
+    #문장단위로 쪼개고 ABC를 랜덤하게 234번째 문단 앞에 붙히기
+    def separate(self,passage:str):
+        # temp1=passage        #passage는 그대로 냅둘라고
+        temp=passage.split('.') # 마침표 기준. 리스트로 쪼갬
+        l=len(temp)
+        # print(temp)
+        num=l//4
+        new_passage_lst=[]
+        new_passage_lst.append(temp[:num])   #0문단-> 얘는 처음에 주어짐. 처음~1/4까지
+        new_passage_lst.append(temp[num:2*num])     #1문단-> 1/4 다음 문장에서 1/2문장까지
+        new_passage_lst.append(temp[2*num:3*num])   #~
+        new_passage_lst.append(temp[3*num:])   #~
 
 
+        # new_passage_lst[0]=sum(new_passage_lst[0][0],new_passage_lst[0][1])
+        # print(new_passage_lst)
+        for i in range(4):
+            new_passage_lst[i]=' '.join(new_passage_lst[i])
+
+        #정답을 랜덤하게 배치
+        answer_list=[['A','B','C'],['A','C','B'],['B','A','C'],['B','C','A'],['C','A','B'],['C','B','A']]
+        select=random.sample(answer_list,5)  #위에 6개 중 5개 랜덤하게 선택됨
+        ans=select[0]   #첫번째 거가 정답임
+        ans_num=[]
+        for j in range(0,3):
+            if ans[j]=='A': ans_num.append(1)
+            if ans[j]=='B': ans_num.append(2)
+            if ans[j]=='C': ans_num.append(3)
+
+        distractors=select[1:5]   #나머지가 distractor 됨
+
+        show=[]                 #정답 순서 따라 new_passage_lst를 show에 재배치
+        for j in range(len(new_passage_lst)):
+            show.append(new_passage_lst[j])
+
+        show[ans_num[0]]=new_passage_lst[1]
+        show[ans_num[1]]=new_passage_lst[2]
+        show[ans_num[2]]=new_passage_lst[3]
+
+        new_passage=''
+        new_passage=str(show[0])+'\n'+'(A)'+'\t'+str(show[1])+'\n'+'(B)'+'\t'+str(show[2])+'\n'+'(C)'+'\t'+str(show[3])
+             
+
+        return new_passage, ans, distractors
+
+    ## paraphrase 의 결과가  complete_dict의 input으로 들어감
+    def make_dict(self, passageID,question_type, question, passage:str)->dict:
+        question_dict=question_dict_sample
+        question_dict['passageID']=int(passageID)
+        question_dict['question_type']=question_type
+        question_dict['question'] = question[0]
+        new_passage, ans, distractor=self.separate(passage)
+
+        question_dict['new_passage'] = new_passage
+        question_dict['answer']=ans
+        question_dict['d1']=distractor[0]   ##이게 출력될 때 A B C 이렇게 나올텐데 A->B->C로 애초에 저장할까?
+        question_dict['d2']=distractor[1]
+        question_dict['d3']=distractor[2]
+        question_dict['d4']=distractor[3]
+
+        return question_dict
+#%%test q3->fin
+'''
+q3=Q3()
+q3_question_type=3
+q3_question=[f'문단을 올바른 순서로 배치']
+passageID=2
+
+#4문단으로 분리, 1문단은 주어짐. 234 랜덤으로 ABC 부여
+#답안 생성, A B C 랜덤하게 배치, 서로 겹치지 않게
 
 
+q3_dict=q3.make_dict(passageID, q3_question_type, q3_question, passage)
+print(q3_dict)
+print(q3_dict['question'])
+print(q3_dict['new_passage'])
+print(q3_dict['answer'])'''
 #%%
 ## 32-34(빈칸추론(문장)): 영어 보기
 class Q4:
