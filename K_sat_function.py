@@ -223,7 +223,9 @@ class word_dict(object):
         else:
             try:
                 data = _get_soup_object("https://www.powerthesaurus.org/"+term+"/synonyms")
-                section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
+                ## 여기 클래스가 가끔 바뀌는 듯..?
+                # section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
+                section = data.findAll('a', {'class': "cl_az cl_cm z4_az"})[:num_word]
                 synonyms=[s.text.strip() for s in section]
                 print(synonyms)
                 if formatted:
@@ -238,7 +240,9 @@ class word_dict(object):
         else:
             try:
                 data = _get_soup_object("https://www.powerthesaurus.org/"+term+"/antonyms")
-                section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
+                ## 여기 클래스가 가끔 바뀌는 듯..?
+                # section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
+                section = data.findAll('a', {'class': "cl_az cl_cm z4_az"})[:num_word]
                 antonyms=[s.text.strip() for s in section]
                 if formatted:
                     return {term: antonyms}
