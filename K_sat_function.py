@@ -227,7 +227,7 @@ class word_dict(object):
                 # section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
                 section = data.findAll('a', {'class': "cl_az cl_cm z4_az"})[:num_word]
                 synonyms=[s.text.strip() for s in section]
-                print(synonyms)
+                # print(synonyms)
                 if formatted:
                     return {term: synonyms}
                 return synonyms

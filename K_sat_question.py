@@ -178,9 +178,9 @@ class Q2:
         question_dict['question'] = question[0]
 
         ## 적절하지 않은? 적절한?
-        if '않은' in question[0]:## 적절한거 고르기: 오답4 정답1
-            q1_paraphrase=false_sentences
-            false_sentences=q1_paraphrase
+        if '않은' in question[0]:   ## 적절한거 고르기: 오답4 정답1
+            q1_paraphrase,false_sentences=false_sentences, q1_paraphrase
+            # false_sentences=q1_paraphrase
 
         ## 랜덤으로 답 뽑기
         num=random.randint(0, 4)# a <= num <= b
@@ -313,60 +313,6 @@ print(q3_dict['question'])
 print(q3_dict['new_passage'])
 print(q3_dict['answer'])'''
 #%%
-# def _get_soup_object(url, parser="html.parser"):
-#     headers = {
-#     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.84 Safari/537.36',
-#     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-#     }
-#     return BeautifulSoup(requests.get(url,headers=headers).text, parser)
-
-# class word_dict(object):
-#     def __init__(self, *args):
-#         try:
-#             if isinstance(args[0], list):
-#                 self.args = args[0]
-#             else:
-#                 self.args = args
-#         except:
-#             self.args = args
-    
-#     def getSynonyms(self, num_word, formatted=False):
-#         return [self.synonym(term, num_word, formatted) for term in self.args]
-        
-#     def getAntonyms(self,num_word, formatted=False):
-#             return [self.antonym(term, num_word, formatted) for term in self.args]
-
-#     def synonym(self, term, num_word, formatted=False):
-#         if len(term.split()) > 1:
-#             print("Error: A Term must be only a single word")
-#         else:
-#             try:
-#                 data = _get_soup_object("https://www.powerthesaurus.org/"+term+"/synonyms")
-#                 # section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
-#                 section = data.findAll('a', {'class': "cl_az cl_cm z4_az"})[:num_word]
-#                 synonyms=[s.text.strip() for s in section]
-#                 # print(synonyms)
-#                 if formatted:
-#                     return {term: synonyms}
-#                 return synonyms
-#             except: None
-
-#     def antonym(self, term, num_word, formatted=False):
-#         if len(term.split()) > 1:
-#             print(term)
-#             print("Error: A Term must be only a single word")
-#         else:
-#             try:
-#                 data = _get_soup_object("https://www.powerthesaurus.org/"+term+"/antonyms")
-#                 # section = data.findAll('a', {'class': "ch_at ch_ci aaa_at"})[:num_word]
-#                 section = data.findAll('a', {'class': "cl_az cl_cm z4_az"})[:num_word]
-#                 antonyms=[s.text.strip() for s in section]
-#                 if formatted:
-#                     return {term: antonyms}
-#                 return antonyms
-#             except:None
-
-#%%
 ## 31(빈칸추론(단어)): 영어 보기
 class Q4:
     def __init__(self):
@@ -387,15 +333,13 @@ class Q4:
         return answer_list[0]
 
     ## 오답 단어 4개 만들기
-    ############# 수정ㅇ하기!!
     def distractors(self, answer:str)->list:
         wd=word_dict()
-        a=get_antonym_list(answer, num_word=1)
-        print(a)
-        # print('\n\n')
-        b=wd.synonym(answer, num_word=3)
-        # print(b)
-        distractors=sum(get_antonym_list(answer, num_word=1), get_synonym_list(answer, num_word=3))
+        antonym_list=get_antonym_list(answer, num_word=1)  ## 쉬운 오답(반의어): 1개
+        synonym_list=get_synonym_list(answer, num_word=3)  ## 어려운 오답(유의어): 3개
+        distractors=sum(antonym_list,[]) ## sum( 덧셈할 것, 처음에 더할 것)
+        distractors=sum(synonym_list,distractors) ## sum( 덧셈할 것, 처음에 더할 것)
+
         return distractors
 
     ## new_passage
@@ -407,17 +351,18 @@ class Q4:
         else: print('No result');return None
 
 
-    ## paraphrase 의 결과가  complete_dict의 input으로 들어감
     def make_dict(self, passageID, question_type, question, new_passage:str, answer, distractors):
         question_dict=question_dict_sample.copy()
         
         question_dict['passageID']=int(passageID)
         question_dict['question_type']=question_type    # 4
         question_dict['question'] = question[0] # '다음 빈칸에 들어갈 말로 가장 적절한 것을 고르시오.'
+
         ## 새로운 passage
-        question_dict[new_passage]=new_passage
+        question_dict['new_passage']=new_passage
     
         question_dict['answer']=answer
+
         question_dict['d1']=distractors[0]
         question_dict['d2']=distractors[1]
         question_dict['d3']=distractors[2]
@@ -427,30 +372,17 @@ class Q4:
         return question_dict
 
 #%%
-q4=Q4()
+'''q4=Q4()
 q4_question_type=4
 q4_question=['다음 빈칸에 들어갈 말로 가장 적절한 것을 고르시오']
 q4_summarize=q4.summarize(passage)
 q4_paraphrase=q4.paraphrase(q4_summarize)
 q4_answer=q4.get_answer(q4_paraphrase)
-# #%%
-# print(q4_summarize)
-# print(q4_paraphrase)
-# print(q4_answer)
-#%%
 q4_new_passage=q4.make_new_passage(passage, q4_summarize[0], q4_paraphrase[0], q4_answer)
-#%%
 q4_distractors=q4.distractors(q4_answer)
-
-print(q4_distractors)
+q4_dict=q4.make_dict(passageID, q4_question_type, q4_question, q4_new_passage, q4_answer, q4_distractors)'''
 #%%
-q4_dict=q4.make_dict(passageID, q4_question_type, q4_question, q4_new_passage, q4_answer, q4_distractors)
-
-print(q4_dict)
-#%%
-## 30, 42
-## 다음글의밑줄친부분중,문맥상낱말의쓰임이적절하지 않은 것은?
-
+## 30, 42(적절하지 않은 단어)
 class Q5:
     def __init__(self):
         self.gpt2_tokenizer = gpt2_tokenizer
@@ -460,13 +392,20 @@ class Q5:
     def summarize(self, passage:str, num_sentence=5)->list:
         return summary(passage, num_sentences=num_sentence)
 
-    def get_answer(self, paraphrase:list)->str: # 5문장 들어가서 단어 5개 나옴
-        answer_list=get_keyword_list(paraphrase, max_word_cnt=1, top_n=1)
-        return answer_list[0]
+    def get_keyword(self, paraphrase:list)->list: # 5문장 들어가서 단어 5개 나옴
+        keyword_list=get_keyword_list(paraphrase, max_word_cnt=1, top_n=1)
+        return keyword_list
+
+    def distractors(self, keyword_list:list)->list: ## 단어 5개 들어가서 단어 5개 나옴
+        distractor_list=[]
+        wd=word_dict()
+        for i in keyword_list:
+            distractor_list.append(wd.antonym(i,1)[0])
+        return distractor_list
+
     
     ## new_passage
-    def make_new_passage(self, passage:str, summarize:list, answer:list)->str: 
-        # new_sum=[]
+    def make_new_passage(self, passage:str, summarize:list, answer:list)->str:
         for i in range(len(summarize)):
             if answer[i] in summarize[i]:
                 space='_'*int(len(answer[i])*0.6)
@@ -477,140 +416,51 @@ class Q5:
                 
 
 
-    ## paraphrase 의 결과가  complete_dict의 input으로 들어감
-    def make_dict(self, passageID,question_type, question, q1_paraphrase, false_sentences, is_Korean=False):
+    # def make_dict(self, passageID, question_type, question, passage:str, summarize:list, keyword:list, distractors:list)->dict:
+    def make_dict(self, passageID, question_type, question, keyword:list, keyword_antonym:list)->dict:
         question_dict=question_dict_sample.copy()
         question_dict['passageID']=int(passageID)
-        question_dict['question_type']=question_type
+        question_dict['question_type']=question_type    # 5
         question_dict['question'] = question[0]
 
         ## 적절하지 않은? 적절한?
-        if '않은' in question[0]:## 적절한거 고르기: 오답4 정답1
-            q1_paraphrase=false_sentences
-            false_sentences=q1_paraphrase
+        if '않은' in question[0]:   ## 적절하지 않은 것 고르기: keyword_antonym 에서 정답 나옴
+            ans_list=keyword_antonym.copy()
+            dist_list=keyword.copy()
+        else:
+            ans_list=keyword.copy()
+            dist_list=keyword_antonym.copy()
 
         ## 랜덤으로 답 뽑기
-        num=random.randint(0, 4)# a <= num <= b
+        num=random.randint(0, 4)    ## a <= num <= b
         print(num)## 2
         # num=2
-        q1_paraphrase2=[]
-        false_sentences2=[]
+        answer=ans_list[num]
+        del dist_list[num]
+        
+        ## 새로운 passage 만들기
+        # question_dict['new_passage']=self.make_new_passage(passage, summarize,)
+    
+        question_dict['answer']=answer
 
-        q1_paraphrase2.append(q1_paraphrase[num])
+        question_dict['d1']=dist_list[0]
+        question_dict['d2']=dist_list[1]
+        question_dict['d3']=dist_list[2]
+        question_dict['d4']=dist_list[3]
 
-        for i in range(5):
-            print(i)
-            if i!=num:
-                false_sentences[i]
-                false_sentences2.append(false_sentences[i])
-            if i==num:print('aaaa')
-
-        print(false_sentences2)
-        print(q1_paraphrase2)
-
-
-        ## 번역
-        if is_Korean==True:
-            print('Kor')
-            q1_paraphrase2=transe_kor(q1_paraphrase2)
-            false_sentences2=transe_kor(false_sentences2)
-
-        question_dict['answer']=q1_paraphrase2[0]
-        question_dict['d1']=false_sentences2[0]
-        question_dict['d2']=false_sentences2[1]
-        question_dict['d3']=false_sentences2[2]
-        question_dict['d4']=false_sentences2[3]
-
+        
         return question_dict
-
 
 #%%
-'''## 32-34(빈칸추론(문장)): 영어 보기
-## 핵심문장 3개-> 중심단어->그게 포함된 구/절
-class Q5:
-    def __init__(self):
-        self.gpt2_tokenizer = gpt2_tokenizer
-        self.gpt2_model = gpt2_model
-        self.bert_model=bert_model
-    
-    ## 중심문장 3문장 찾기(지문내의 문장)
-    def summarize(self, passage:str, num_sentence=3)->list:
-        return summary(passage, num_sentences=num_sentence)
-    
-    ## 문장을 구/절 로 나눔
-    def sentence_split(self, summarize:list):
-        None    
-
-    ## 문장에서 키워드 추출 -> 키워드가 포함된 
-    def get_answer(self, summarize:list)->str:
-        for sentence in summarize:
-            keyword=get_keyword_list(sentence, max_word_cnt=1, top_n=1)
-        return answer
-
-    ## 오답문장 4개 만들기
-    # def distractors(self, sent_completion_dict:dict, answer:str):## 
-    def distractors(self, sent_completion_dict:dict):
-        distractors=[]
-        distractor_cnt = 1
-        for key_sentence in sent_completion_dict:
-            print(distractor_cnt)
-            if distractor_cnt == 6:
-                break
-            partial_sentences = sent_completion_dict[key_sentence]
-            false_sentences_list =[]
-            false_sentence = []
-            for partial_sent in partial_sentences:
-                for repeat in range(10):
-                    false_sentence = generate_sentences_for_blank_inference(partial_sent, key_sentence)
-                    if false_sentence != []:
-                        break
-                false_sentences_list.extend(false_sentence)
-                print(false_sentences_list)
-                print('\n\n')
-            distractors.extend(paraphrasing_by_transe(false_sentences_list[:1]))
-            distractor_cnt += 1
-        return distractors
-
-    ## new_passage
-    def make_new_passage(self, passage:str, answer:list): #fin, str/None 리턴
-        for sentence in answer:
-            if sentence in passage:
-                space='_'*int(len(sentence)*0.6)
-                new_passage=passage.replace(sentence, space)
-                return new_passage
-            else: print('No result');return None
-
-    ## paraphrase 의 결과가  complete_dict의 input으로 들어감
-    def make_dict(self, passageID, question_type, question, new_passage:str, q1_paraphrase, false_sentences):
-        question_dict=question_dict_sample.copy()
-        
-        question_dict['passageID']=int(passageID)
-        question_dict['question_type']=question_type    # 4
-        question_dict['question'] = question[0] # '다음 빈칸에 들어갈 말로 가장 적절한 것을 고르시오.'
-        
-        ## 새로운 passage
-        question_dict[new_passage]=new_passage
-
-        ## 랜덤으로 답 뽑기
-        num=random.randint(0, 4)
-        # print(num)
-        q1_paraphrase2=[]
-        false_sentences2=[]
-
-        q1_paraphrase2.append(q1_paraphrase[num])
-
-        for i in range(5):
-            if i!=num:
-                false_sentences2.append(false_sentences[i])
-
-                
-    
-        question_dict['answer']=q1_paraphrase2[0]
-        question_dict['d1']=false_sentences2[0]
-        question_dict['d2']=false_sentences2[1]
-        question_dict['d3']=false_sentences2[2]
-        question_dict['d4']=false_sentences2[3]
-
-        
-        return question_dict
-'''
+q5=Q5()
+q5_question_type=5
+q5_list=['한', '하지 않은']
+q5_question=[f'다음 글의 밑줄 친 부분 중, 문맥상 낱말의 쓰임이 적절{random.choice(q5_list)} 것은?']
+q5_summarize=q5.summarize(passage)
+q5_keyword=q5.get_keyword(q5_summarize)
+q5_distractors=q5.distractors(q5_keyword)
+q5_dict=q5.make_dict(passageID, q5_question_type, q5_question, q5_keyword, q5_distractors)
+print(q5_distractors)
+#%%
+print(q5_keyword)
+#%%
