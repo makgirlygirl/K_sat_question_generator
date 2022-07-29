@@ -7,10 +7,11 @@ from hashlib import new
 import torch
 from keybert import KeyBERT
 from tomlkit import key
-from transformers import SEGFORMER_PRETRAINED_CONFIG_ARCHIVE_MAP
+from transformers import pipeline
 
 from K_sat_function import *
-from model import bert_model, gpt2_model, gpt2_tokenizer
+
+# from model import bert_model, gpt2_model, gpt2_tokenizer
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 #%%
@@ -29,9 +30,6 @@ question_dict_sample={'passageID':None,
 #%% 18, 20, 22(목적/요지/주제): 한국어 보기, 23, 24, 41(주제/제목): 영어 보기
 class Q1:
     def __init__(self):
-        self.gpt2_tokenizer = gpt2_tokenizer
-        self.gpt2_model = gpt2_model
-        self.bert_model=bert_model
         self.question_type=1
         self.qlist=['목적으로', '주장으로', '요지로', '제목으로']
         self.question=f'다음 글의 {random.choice(self.qlist)} 가장 적절한 것은?'
@@ -100,13 +98,9 @@ class Q1:
         question_dict['d4']=dist_list[3]
 
         return question_dict
-
 #%% 26-28, 45(내용 일치/불일치): 영어 보기/한글 보기
 class Q2:
     def __init__(self):
-        self.gpt2_tokenizer = gpt2_tokenizer
-        self.gpt2_model = gpt2_model
-        self.bert_model=bert_model
         self.question_type=2
         self.qlist=['적절한', '적절하지 않은']
         self.question=f'윗글에 관한 내용으로 가장 {random.choice(self.qlist)} 것은?'
@@ -179,7 +173,7 @@ class Q2:
 
         ## 번역
         if is_Korean==True:
-            print('Kor')
+            # print('Kor')
             answer=transe_kor(answer)   ## input: str -> output: str
             dist_list=transe_kor(dist_list) ## input: list -> output: list
 
@@ -190,7 +184,6 @@ class Q2:
         question_dict['d4']=dist_list[3]
 
         return question_dict
-
 #%% 36-37, 43(순서(ABC)): 영어 보기
 class Q3:
     def __init__(self):
@@ -267,9 +260,6 @@ class Q3:
 #%% 31(빈칸추론(단어)): 영어 보기
 class Q4:
     def __init__(self):
-        self.gpt2_tokenizer = gpt2_tokenizer
-        self.gpt2_model = gpt2_model
-        self.bert_model=bert_model
         self.question_type=4
         self.question='다음 빈칸에 들어갈 말로 가장 적절한 것을 고르시오'
 
@@ -329,13 +319,9 @@ class Q4:
 
         
         return question_dict
-
 #%% 30, 42(적절하지 않은 단어)
 class Q5:
     def __init__(self):
-        self.gpt2_tokenizer = gpt2_tokenizer
-        self.gpt2_model = gpt2_model
-        self.bert_model=bert_model
         self.question_type=5
         self.q_list=['한', '하지 않은']
         self.question=f'다음 글의 밑줄 친 부분 중, 문맥상 낱말의 쓰임이 적절{random.choice(self.q_list)} 것은?'
@@ -359,7 +345,7 @@ class Q5:
         for i in range(len(summarize_list)):
             summ=summarize_list[i]
             old=old_list[i]
-            new=new_list[i]
+            new='\033[4m'+new_list[i]+'\033[0m'
             # print((summ))
             # print((old))
             # print((new))
@@ -399,24 +385,26 @@ class Q5:
         ## 랜덤으로 답 뽑기
         num=random.randint(0, 4)    ## a <= num <= b
         answer=ans_list[num]    ## 정답
-        del dist_list[num]  ## 오답 list 수정
+        dist_list[num]=answer
         
-        if flag==False: ## 1개만 바꿔주면 됨
-            summarize_list=[summarize[num]]
-            old_list=[keyword[num]]
-            new_list=[answer]
-        else:   ## 4개를 바꿔주어야 함
-            summarize_list=summarize[:num]+summarize[num+1:]
-            old_list=keyword[:num]+keyword[num+1:]
-            new_list=keyword_antonym[:num]+keyword_antonym[num+1:]
+        
+        # if flag==False: ## 1개만 바꿔주면 됨
+        #     summarize_list=[summarize[num]]
+        #     old_list=[keyword[num]]
+        #     new_list=[answer]
+        # else:   ## 4개를 바꿔주어야 함
+        #     summarize_list=summarize[:num]+summarize[num+1:]
+        #     old_list=keyword[:num]+keyword[num+1:]
+        #     new_list=keyword_antonym[:num]+keyword_antonym[num+1:]
 
             # print(len(summarize_list))
             # print(len(old_list))
             # print(len(new_list))
 
         ## 새로운 passage 만들기
-        question_dict['new_passage']=self.make_new_passage(passage, summarize_list, old_list, new_list)
-    
+        question_dict['new_passage']=self.make_new_passage(passage, summarize, keyword, dist_list)
+        del dist_list[num]  ## 오답 list 수정
+
         question_dict['answer']=answer
         question_dict['d1']=dist_list[0]
         question_dict['d2']=dist_list[1]
@@ -424,6 +412,122 @@ class Q5:
         question_dict['d4']=dist_list[3]
 
         return question_dict
+#%% 38-39 문장이 들어가기에 적절한 곳
+class Q6:
+    def __init__(self):
+        self.question_type=6
+        self.question='글의 흐름으로 보아, 주어진 문장이 들어가기에 가장 적절한 곳을 고르시오.'
+    
+    def separate(self,passage:str):
+        #문장단위로 쪼개기
+        temp=passage.split('.') # 마침표 기준. 리스트로 쪼갬
+        del temp[len(temp)-1]
+        l=len(temp)
 
+        # 정답 고르고 distractor 생성
+        answer_list=[1,2,3,4,5]
+        answer=random.randint(1,5)
+
+        num=range(1,l-1)          # 문장 번호, 마지막 문장은 제외
+        select=random.sample(num,5) # 그 중에 5개
+        select.sort()
+
+        dist_list=[x for x in answer_list if x!=answer]
+
+        # 정답 문장
+        ans_text=temp[select[answer-1]]
+
+        # 일단 정답을 앞뒷문장이랑 합치고 
+        temp[answer]=str(temp[answer-1])+'. ('+str(answer)+')'+str(temp[answer+1])
+        del temp[answer-1]
+        del temp[answer]
+        del select[answer-1]
+
+        # 나머지 문장에 괄호 붙히기
+        cnt=0
+        i=0
+        l=len(temp)
+        num=range(1,l)          
+        select=random.sample(num,4) # 그 중에 4개
+        select.sort()
+        while(cnt<4):
+            if(i==select[cnt]):
+                if(i>=answer):
+                    temp[i]='('+str(answer_list[cnt]+1)+')'+str(temp[i])
+                else:
+                    temp[i]='('+str(answer_list[cnt])+')'+str(temp[i])
+                cnt+=1
+            i+=1
+
+        ## 문제 출력
+        new_passage='. '.join(temp)
+        new_passage=str(ans_text)+'\n\n'+str(new_passage)+'.'
+
+        return new_passage, answer, dist_list
+
+    def make_dict(self, passageID)->dict:
+        question_dict=question_dict_sample.copy()
+        question_dict['passageID']=int(passageID)
+        question_dict['question_type']=self.question_type
+        question_dict['question'] = self.question
+
+        #####################################################
+        ## passageID로 passage를 가져오는 코드 있어야 함
+        #####################################################
+
+        new_passage, answer, dist_list=self.separate(passage)
+
+        question_dict['new_passage'] = new_passage
+        question_dict['answer']=answer
+        question_dict['d1']=dist_list[0]   
+        question_dict['d2']=dist_list[1]
+        question_dict['d3']=dist_list[2]
+        question_dict['d4']=dist_list[3]
+
+        return question_dict
 #%%
+# http://datageek.fr/abstractive-summarization-with-huggingface-pre-trained-models/
+# https://huggingface.co/docs/transformers/v4.21.0/en/main_classes/pipelines#transformers.SummarizationPipeline
 
+# class Q7:
+#     def __init__(self):
+#         self.summarizer = pipeline("summarization", model="facebook/bart-large-xsum")
+#         self.question_type=6
+#         self.question='다음 글의 내용을 요약하려고 한다. 빈칸 (A), (B)에 들어갈 말로 적절한 것은?'
+#         # self.question='다음 글의 내용을 한 문장으로 요약하려고 한다. 빈칸 (A), (B)에 들어갈 말로 적절한 것은?'
+
+#     def abstractive_summarize(self, passage:str)->list:
+#         summarize = self.summarizer(passage, min_length=25, max_length=50) ## list[dict]
+#         summary=summarize[0].get('summary_text')   ## str
+#         print('summary:\n'+summary)
+#         return [summary]
+
+#     def paraphrase(self, summary:list)->list:
+#         paraphrase=paraphrasing_by_transe(summary)
+#         print('paraphrase:\n')
+#         print(paraphrase)
+        
+#         return paraphrase
+
+#     def get_keyword(self, ):
+#         None
+
+#     def make_dict(self, passageID)->dict:
+#         question_dict=question_dict_sample.copy()
+#         question_dict['passageID']=int(passageID)
+#         question_dict['question_type']=self.question_type
+#         question_dict['question'] = self.question
+
+#         #####################################################
+#         ## passageID로 passage를 가져오는 코드 있어야 함
+#         #####################################################
+        
+#         summarize=self.abstractive_summarize(passage)   ## list
+#         paraphrase=self.paraphrase(summarize)   ## list
+# #%%
+
+
+# q=Q7()
+# print(q.make_dict(2))
+
+# # %%
