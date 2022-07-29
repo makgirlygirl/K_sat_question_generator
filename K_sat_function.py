@@ -56,12 +56,8 @@ def paraphrasing_by_transe(summary:list, midpoint='zh-cn')->list:
 #%%
 def transe_kor(str:list)->list:
     kor=[]
-    # print(str)
-    # print('\n\n')
     for sentence in str:
         k_sentence=translator.translate(sentence, src='en', dest='ko').text
-        # print(k_sentence)
-        # print(type(k_sentence))# str
         kor.append(k_sentence)
     return kor
 #%%
