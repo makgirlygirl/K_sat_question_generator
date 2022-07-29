@@ -9,11 +9,22 @@ from K_sat_question import *
 logging.set_verbosity_warning()
 warnings.filterwarnings(action='ignore') 
 
+###################################### TODO ######################################
+## K_sat_function 에서 make_dict 에 문장 첫글자, 사람 이름 대문자로 바꾸는 코드 있어야 함
+## K_sat_question 에서 make_dict 에 DB에서 passageID로 passage를 가져오는 코드 있어야 함
+
+## 19. 심경변화
+## 21. 밑줄친것이 글에서 의미하는것
+## 25. 도표 일치 불일치
+## 29. 문법
+## 32-34. 빈칸추론 (구/절) ->문장에서 keyword 말고 중심 구/절 추출
+## 44. 밑줄친 대상이 나머지와 다른것?
+## 40. 요약후 키워드 2개
+
+## 문제가 적절한지 풀어보기
+##################################################################################
+
 #%% file open & set seed(for same result)
-#####################################################
-## K_sat_function 에서 make_dict 에 
-## DB에서 passageID로 passage를 가져오는 코드 있어야 함
-#####################################################
 f = open("/home/my_qg/testset/2.txt","r")
 passageID=2
 passage = f.read()
@@ -48,4 +59,9 @@ print(q5_dict)
 q6=Q6()
 q6_dict=q6.make_dict(passageID)
 print(q6_dict)
-#%%
+#%% 35 전체 흐름과 관계 없는 문장
+q7=Q7()
+q7_dict=q7.make_dict(passageID)
+print(q7_dict)
+
+# %%

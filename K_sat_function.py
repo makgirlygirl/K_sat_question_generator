@@ -44,7 +44,6 @@ def summary(passage, num_sentences):
         summary.append(str(sentence))
     return summary
 
-#%%
 def paraphrasing_by_transe(summary:list, midpoint='zh-cn')->list:
     pharaphrase=[]
     for sentence in summary:
@@ -52,7 +51,7 @@ def paraphrasing_by_transe(summary:list, midpoint='zh-cn')->list:
         pharaphrase.append(translator.translate(translate, src=midpoint, dest='en').text)
 
     return pharaphrase
-#%%
+
 def transe_kor(sentence):
     # print(type(sentence))
     if type(sentence)==list:
@@ -252,7 +251,6 @@ def get_synonym_list(word:str, num_word)->list:
     synonym= dictionary.getSynonyms(num_word=num_word)
     return synonym
 
-## 나중에 랜덤으로 뽑앙서 하나만 바꾸는걸로 바꿔보자..
 def get_antonym_list(word:str, num_word)->list:
     dictionary=word_dict(word.split())
     antonym= dictionary.getAntonyms(num_word=num_word)

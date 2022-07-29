@@ -110,7 +110,7 @@ class Q2:
 
     def paraphrase(self, summary:list)->list:
         paraphrase=paraphrasing_by_transe(summary)
-        sent_completion_dict=get_sentence_completions(paraphrase)
+        # sent_completion_dict=get_sentence_completions(paraphrase)
         return paraphrase
 
     def get_false_sentence(self, paraphrase:list)->list:
@@ -267,8 +267,7 @@ class Q4:
         return summary(passage, num_sentences=num_sentence)
     
     def paraphrase(self, summary:list)->list:   ## 1문장
-        paraphrase=paraphrasing_by_transe(summary)
-        return paraphrase
+        return paraphrasing_by_transe(summary)
 
     def get_answer(self, paraphrase:list)->str: ## 1문장 들어가서 키워드 1개 나옴
         answer_list=get_keyword_list(paraphrase, max_word_cnt=1, top_n=1)
@@ -323,15 +322,13 @@ class Q4:
 class Q5:
     def __init__(self):
         self.question_type=5
-        self.q_list=['한', '하지 않은']
-        self.question=f'다음 글의 밑줄 친 부분 중, 문맥상 낱말의 쓰임이 적절{random.choice(self.q_list)} 것은?'
+        self.question='다음 글의 밑줄 친 부분 중, 문맥상 낱말의 쓰임이 적절하지 않은 것은?'
 
     def summarize(self, passage:str, num_sentence=5)->list:
         return summary(passage, num_sentences=num_sentence)
 
     def get_keyword(self, paraphrase:list)->list: ## 5문장 들어가서 단어 5개 나옴
-        keyword_list=get_keyword_list(paraphrase, max_word_cnt=1, top_n=1)
-        return keyword_list
+        return get_keyword_list(paraphrase, max_word_cnt=1, top_n=1)
 
     def get_keyword_antonym(self, keyword_list:list)->list: ## 단어 5개 들어가서 단어 5개 나옴
         antonym_list=[]
@@ -340,20 +337,23 @@ class Q5:
             antonym_list.append(wd.antonym(i,1)[0])  ## 반의어
         return antonym_list
 
-    def make_new_passage(self, passage:str, summarize_list:list, old_list:list, new_list:list)->str:
+    def make_new_passage(self, passage:str, summarize_list:list, origin_list:list, new_list:list ,answer:int)->str:
         new_passage=''+passage
         for i in range(len(summarize_list)):
             summ=summarize_list[i]
-            old=old_list[i]
-            new='\033[4m'+new_list[i]+'\033[0m'
-            # print((summ))
-            # print((old))
-            # print((new))
+            origin=origin_list[i]
 
-            if old.lower() in summ.lower(): ## 문장이 바뀌는 경우
-                new_summ=summ.replace(old, new)
-                if summ in new_passage:
-                    new_passage=new_passage.replace(summ, new_summ)
+            if i+1==answer: ## 단어가 바뀌는 경우
+                new='('+str(i+1)+') '+new_list[i]
+            else: 
+                new='('+str(i+1)+') '+origin
+
+            if origin in summ:
+                new_summ=summ.replace(origin, new)
+            else:
+                new_summ=summ.lower().replace(origin, new)
+
+            new_passage=new_passage.replace(summ, new_summ)
         return new_passage
 
     def make_dict(self, passageID)->dict:
@@ -366,52 +366,33 @@ class Q5:
         #####################################################
 
         question_dict['question_type']=self.question_type
-        question_dict['question'] =self.question
+        question_dict['question'] =self.question    ## '다음 글의 밑줄 친 부분 중, 문맥상 낱말의 쓰임이 적절하지 않은 것은?'
 
         summarize=self.summarize(passage)  ## list
         keyword=self.get_keyword(summarize) ## list
         keyword_antonym=self.get_keyword_antonym(keyword)   ## list
 
-
-        ## 적절하지 않은? 적절한?
-        if '않은' in self.question:   ## 적절하지 않은 것 고르기: 적절 4 안적절 1 -> 하나만 바꿔주면됨
-            ans_list=keyword_antonym.copy()
-            dist_list=keyword.copy()
-            flag=False
-        else:   ## 적절한 것 고르기: 적절 1 안적절 4 -> 오답4개 바꿔주어야함
-            ans_list=keyword.copy()
-            dist_list=keyword_antonym.copy()
-
         ## 랜덤으로 답 뽑기
-        num=random.randint(0, 4)    ## a <= num <= b
-        answer=ans_list[num]    ## 정답
-        dist_list[num]=answer
-        
-        
-        # if flag==False: ## 1개만 바꿔주면 됨
-        #     summarize_list=[summarize[num]]
-        #     old_list=[keyword[num]]
-        #     new_list=[answer]
-        # else:   ## 4개를 바꿔주어야 함
-        #     summarize_list=summarize[:num]+summarize[num+1:]
-        #     old_list=keyword[:num]+keyword[num+1:]
-        #     new_list=keyword_antonym[:num]+keyword_antonym[num+1:]
+        ex=[1, 2, 3, 4, 5]
+        answer = random.choice(ex)
+        ex.remove(answer)
 
-            # print(len(summarize_list))
-            # print(len(old_list))
-            # print(len(new_list))
+        # ans_list=keyword_antonym.copy() ## 틀린 단어(바뀌어야 함)
+        # dist_list=keyword.copy()    ## 원래 단어(바뀌지 말아야 함)
+        ans_list=keyword_antonym ## 틀린 단어(바뀌어야 함)
+        dist_list=keyword    ## 원래 단어(바뀌지 말아야 함)
 
         ## 새로운 passage 만들기
-        question_dict['new_passage']=self.make_new_passage(passage, summarize, keyword, dist_list)
-        del dist_list[num]  ## 오답 list 수정
+        question_dict['new_passage']=self.make_new_passage(passage, summarize, dist_list, ans_list, answer)
 
-        question_dict['answer']=answer
-        question_dict['d1']=dist_list[0]
-        question_dict['d2']=dist_list[1]
-        question_dict['d3']=dist_list[2]
-        question_dict['d4']=dist_list[3]
+        question_dict['answer']=str(answer)+'. '+ans_list[answer-1]
+        question_dict['d1']=str(ex[0])+'. '+dist_list[ex[0]-1]
+        question_dict['d2']=str(ex[1])+'. '+dist_list[ex[1]-1]
+        question_dict['d3']=str(ex[2])+'. '+dist_list[ex[2]-1]
+        question_dict['d4']=str(ex[3])+'. '+dist_list[ex[3]-1]
 
         return question_dict
+#%%
 #%% 38-39 문장이 들어가기에 적절한 곳
 class Q6:
     def __init__(self):
@@ -485,49 +466,124 @@ class Q6:
         question_dict['d4']=dist_list[3]
 
         return question_dict
+
+#%% 35 전체 흐름과 관계 없는 문장
+class Q7:
+    def __init__(self):
+        self.question_type=8
+        self.question='다음 글에서 전체 흐름과 관계 없는 문장은?'
+
+    def summarize(self, passage:str, num_sentence=5)->list:
+        return summary(passage, num_sentences=num_sentence)
+
+    def get_completion_dict(self, summary:list)->dict:
+        paraphrase=paraphrasing_by_transe(summary)  ## list
+        sent_completion_dict=get_sentence_completions(paraphrase)   ## dict
+        return sent_completion_dict
+
+    def get_false_paraphrase(self, sent_completion_dict:dict)->list:
+        false_paraphrase=[]
+        false_paraphrase_cnt = 1
+        for key_sentence in sent_completion_dict:
+            if false_paraphrase_cnt == 6:
+                break
+            partial_sentences = sent_completion_dict[key_sentence]
+            false_sentences =[]
+            false_sents = []
+            for partial_sent in partial_sentences:
+                for repeat in range(10):
+                    false_sents = generate_sentences(partial_sent, key_sentence)
+                    if false_sents != []:
+                        break
+                false_sentences.extend(false_sents)
+            false_paraphrase.extend(paraphrasing_by_transe(false_sentences[:1]))
+            false_paraphrase_cnt += 1
+        return false_paraphrase
+
+    def make_new_passage(self, passage:str, origin_sentence:str, false_sentence:str)->str:
+        if origin_sentence in passage:
+            new_passage=passage.replace(origin_sentence, false_sentence)
+            return new_passage  ## str
+        else: print('No result');return None
+
+
+    def make_dict(self, passageID)->dict:
+        question_dict=question_dict_sample.copy()
+        question_dict['passageID']=int(passageID)
+        question_dict['question_type']=self.question_type
+        question_dict['question'] = self.question
+
+        #####################################################
+        ## passageID로 passage를 가져오는 코드 있어야 함
+        #####################################################
+
+        summarize=self.summarize(passage)  ## list
+        # print(summarize)
+        sent_completion_dict=self.get_completion_dict(summarize)
+        # print(sent_completion_dict)
+        false_paraphrase=self.get_false_paraphrase(sent_completion_dict)
+        # print(false_paraphrase)
+
+        ## 랜덤으로 답 뽑기
+        num=random.randint(0, 4)    ## a <= num <= b
+        answer=false_paraphrase[num]    ## 정답
+
+        dist_list=summarize.copy()
+        del dist_list[num]
+
+        new_passage=self.make_new_passage(passage, summarize[num], answer)
+        question_dict['new_passage']=new_passage
+    
+        question_dict['answer']=answer
+        question_dict['d1']=dist_list[0]
+        question_dict['d2']=dist_list[1]
+        question_dict['d3']=dist_list[2]
+        question_dict['d4']=dist_list[3]
+
+        return question_dict
 #%%
+
+#%% 40 글의 내용 요약하고 빈칸 2개 단어 고르기
 # http://datageek.fr/abstractive-summarization-with-huggingface-pre-trained-models/
 # https://huggingface.co/docs/transformers/v4.21.0/en/main_classes/pipelines#transformers.SummarizationPipeline
+'''
+class Q7:
+    def __init__(self):
+        # self.summarizer = pipeline("summarization", model="Blaise-g/led_finetuned_sumpubmed")
+        # self.question_type=7
+        # self.question='다음 글의 내용을 요약하려고 한다. 빈칸 (A), (B)에 들어갈 말로 적절한 것은?'
+        # self.question='다음 글의 내용을 한 문장으로 요약하려고 한다. 빈칸 (A), (B)에 들어갈 말로 적절한 것은?'
+        None
+    def abstractive_summarize(self, passage:str)->list:
+        summarize = self.summarizer(passage, min_length=25, max_length=50) ## list[dict]
+        summary=summarize[0].get('summary_text')   ## str
+        print('summary:\n'+summary)
+        return [summary]
 
-# class Q7:
-#     def __init__(self):
-#         self.summarizer = pipeline("summarization", model="facebook/bart-large-xsum")
-#         self.question_type=6
-#         self.question='다음 글의 내용을 요약하려고 한다. 빈칸 (A), (B)에 들어갈 말로 적절한 것은?'
-#         # self.question='다음 글의 내용을 한 문장으로 요약하려고 한다. 빈칸 (A), (B)에 들어갈 말로 적절한 것은?'
-
-#     def abstractive_summarize(self, passage:str)->list:
-#         summarize = self.summarizer(passage, min_length=25, max_length=50) ## list[dict]
-#         summary=summarize[0].get('summary_text')   ## str
-#         print('summary:\n'+summary)
-#         return [summary]
-
-#     def paraphrase(self, summary:list)->list:
-#         paraphrase=paraphrasing_by_transe(summary)
-#         print('paraphrase:\n')
-#         print(paraphrase)
+    def paraphrase(self, summary:list)->list:
+        paraphrase=paraphrasing_by_transe(summary)
+        print('paraphrase:\n')
+        print(paraphrase)
         
-#         return paraphrase
+        return paraphrase
 
-#     def get_keyword(self, ):
-#         None
+    def get_keyword(self, ):
+        None
 
-#     def make_dict(self, passageID)->dict:
-#         question_dict=question_dict_sample.copy()
-#         question_dict['passageID']=int(passageID)
-#         question_dict['question_type']=self.question_type
-#         question_dict['question'] = self.question
+    def make_dict(self, passageID)->dict:
+        question_dict=question_dict_sample.copy()
+        question_dict['passageID']=int(passageID)
+        question_dict['question_type']=self.question_type
+        question_dict['question'] = self.question
 
-#         #####################################################
-#         ## passageID로 passage를 가져오는 코드 있어야 함
-#         #####################################################
+        #####################################################
+        ## passageID로 passage를 가져오는 코드 있어야 함
+        #####################################################
         
-#         summarize=self.abstractive_summarize(passage)   ## list
-#         paraphrase=self.paraphrase(summarize)   ## list
-# #%%
-
-
-# q=Q7()
-# print(q.make_dict(2))
-
-# # %%
+        summarize=self.abstractive_summarize(passage)   ## list
+        paraphrase=self.paraphrase(summarize)   ## list
+#%%
+q=Q7()
+print(q.make_dict(2))
+'''
+# %%
