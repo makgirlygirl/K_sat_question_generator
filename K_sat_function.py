@@ -4,7 +4,11 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import json
+import re
 from difflib import SequenceMatcher
+from string import punctuation
+from typing import Dict, List
+from urllib.request import urlopen
 
 import benepar
 import requests
@@ -44,13 +48,21 @@ def summary(passage, num_sentences):
         summary.append(str(sentence))
     return summary
 
-def paraphrasing_by_transe(summary:list, midpoint='zh-cn')->list:
-    pharaphrase=[]
-    for sentence in summary:
-        translate=translator.translate(sentence, src='en', dest=midpoint).text
-        pharaphrase.append(translator.translate(translate, src=midpoint, dest='en').text)
-
-    return pharaphrase
+def paraphrasing_by_transe(summary, midpoint='zh-cn')->list:
+    if type(summary)==list:
+        pharaphrase=[]
+        for sentence in summary:
+            translate=translator.translate(sentence, src='en', dest=midpoint).text
+            pharaphrase.append(translator.translate(translate, src=midpoint, dest='en').text)
+        return pharaphrase
+    elif type(summary)==str:
+        translate=translator.translate(summary, src='en', dest=midpoint).text
+        pharaphrase=''+translator.translate(translate, src=midpoint, dest='en').text
+        return pharaphrase
+    else:
+        print('paraphrasing_by_transe: input error(input type must be list or str)')
+        print('your input is'+type(sentence))
+        return None
 
 def transe_kor(sentence):
     # print(type(sentence))
@@ -115,6 +127,18 @@ def generate_sentences(partial_sentence,full_sentence):
     top_3_sentences = sort_by_similarity(full_sentence, generated_sentences)
     return top_3_sentences
 #%%
+def preprocess(sentences):
+    output = []
+    for sent in sentences:
+        single_quotes_present = len(re.findall(r"['][\w\s.:;,!?\\-]+[']",sent))>0
+        double_quotes_present = len(re.findall(r'["][\w\s.:;,!?\\-]+["]',sent))>0
+        question_present = "?" in sent
+        if single_quotes_present or double_quotes_present or question_present :
+            continue
+            print(type(sent.strip(punctuation)))
+        else:
+            output.append(sent.strip(punctuation))
+    return output
 def get_flattened(t):# MCQ, WH
     sent_str_final = None
     if t is not None:
@@ -146,7 +170,7 @@ def get_right_most_VP_or_NP(parse_tree,last_NP = None,last_VP = None):
     
     return get_right_most_VP_or_NP(last_subtree,last_NP,last_VP)
 
-def get_sentence_completions(key_sentences):
+def get_sentence_completions(key_sentences, option=None):
     sentence_completion_dict = {}
     for individual_sentence in key_sentences:
         sentence = individual_sentence.rstrip('?:!.,;')
@@ -168,25 +192,46 @@ def get_sentence_completions(key_sentences):
             first_sent_len = len(longest_phrase[0].split())
             second_sentence_len = len(longest_phrase[1].split())
             if (first_sent_len - second_sentence_len) > 4:
-                del longest_phrase[1]
+                if option==None:
+                    del longest_phrase[1]
+                elif option=='Q7':
+                    del longest_phrase[0]
                 
         if len(longest_phrase)>0:
             sentence_completion_dict[sentence]=longest_phrase
 
     return sentence_completion_dict
 ## %%
-def get_keyword_list(passage, max_word_cnt,top_n)->list:
-    keyword_score=[]
+def get_keyword_list(passage, max_word_cnt,top_n, option=None)->list:
     result=[]
-
+    # option=None
     if type(passage)==list:
         for sentence in passage:
-            keyword_score.append(kw_model.extract_keywords(sentence, keyphrase_ngram_range=(1,max_word_cnt), stop_words='english', top_n=top_n)[0])
+            kwd=kw_model.extract_keywords(sentence, keyphrase_ngram_range=(1,max_word_cnt), stop_words='english', top_n=top_n)
+            for i in range(len(kwd)):   ## 점수 빼고 단어만
+                kwd[i]=kwd[i][0]
+            if option==None:result.append(kwd)
+            elif option=='Q8':result.append(kwd)
+        # print(result)
+        if option=='Q8':
+            tmp=1;tmp_list=[]
+            for a in result[0]:
+                for b in result[1]:
+                    similarity=word_similarity(a, b)
+                    # print(a, b, similarity)
+                    if similarity<tmp:
+                        tmp=similarity; tmp_list=[a, b]  
+            # print(tmp_list)
+            result=tmp_list
+                        
     elif type(passage)==str:
-        keyword_score.append(kw_model.extract_keywords(passage, keyphrase_ngram_range=(1, max_word_cnt), stop_words='english', top_n=top_n)[0])
-    for keyword in keyword_score:
-        result.append(keyword[0])
+        kwd=kw_model.extract_keywords(passage, keyphrase_ngram_range=(1, max_word_cnt), stop_words='english', top_n=top_n)
+        for i in range(len(kwd)):   ## 점수 빼고 단어만
+                kwd[i]=kwd[i][0]
+        result=kwd
+
     return result
+
 
 def word_similarity(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -255,3 +300,61 @@ def get_antonym_list(word:str, num_word)->list:
     dictionary=word_dict(word.split())
     antonym= dictionary.getAntonyms(num_word=num_word)
     return antonym
+#%%
+"""
+Python wrapper for the website: https://www.homophone.com/
+Gets the homophones of a word.
+https://github.com/kjanjua26/Pyphones
+"""
+class Pyphones:
+    
+    def __init__(self):
+        # self.word = word
+        self.url = "https://www.homophone.com/search?page={}&type=&q={}"
+        # self.homophones = {self.word: []}
+        
+    def get_the_page(self, page_no=1):
+        """
+        Get the page content.
+        Returns
+            str: the content of the page.
+        """
+        url = self.url.format(page_no, self.word)
+        r = requests.get(url)
+        soup = BeautifulSoup(r.content, "html.parser")
+        return soup
+
+    def get_the_page_nos(self):
+        """
+        Get the total number of pages
+        Returns
+            int: the total number of the pages.
+        """
+        soup = self.get_the_page()
+        pages = soup.find_all('div', attrs={'class':'col-sm-9'})
+        total_pages = pages[0].find('h5').text.split('/')[-1].strip()
+        return int(total_pages)
+
+    def get_the_homophones(self, word):
+        """
+        Get the homophones of the word.
+        Returns
+            dict: {word: [list_of_homophones]} against each word.
+        """
+        total_pages = self.get_the_page_nos()
+        for ix in range(total_pages):
+            page_no = ix + 1
+            soup = self.get_the_page(page_no)
+            raw_homophones = soup.find_all('div', attrs={'class': 'well well-lg'})
+            for elem in range(len(raw_homophones)):
+                raw_homophones_2 = raw_homophones[elem].find_all('a', attrs={'class': 'btn word-btn'})
+                list_of_homophones = list(raw_homophones_2)
+                if any(list_of_homophones):
+                    local_homophones = []
+                    for tag_of_homophone in list_of_homophones:
+                        homophone = tag_of_homophone.text
+                        local_homophones.append(homophone)
+        return local_homophones
+        #             self.homophones[self.word].append(local_homophones)
+
+        # return self.homophones

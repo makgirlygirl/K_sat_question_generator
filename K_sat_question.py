@@ -4,6 +4,7 @@ import random
 import re
 from hashlib import new
 
+import nltk
 import torch
 from keybert import KeyBERT
 from tomlkit import key
@@ -11,11 +12,14 @@ from transformers import pipeline
 
 from K_sat_function import *
 
-# from model import bert_model, gpt2_model, gpt2_tokenizer
+# from model import (bert_model, gpt2_model, gpt2_tokenizer, paraphrase_model,
+#                    paraphrase_tokenizer, summarize_model, summarize_tokenizer)
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 #%%
-###### 나중에 지울거
+####################################
+#  나중에 지울거
+####################################
 
 f = open("/home/my_qg/testset/2.txt","r")
 passageID=2
@@ -478,7 +482,7 @@ class Q7:
 
     def get_completion_dict(self, summary:list)->dict:
         paraphrase=paraphrasing_by_transe(summary)  ## list
-        sent_completion_dict=get_sentence_completions(paraphrase)   ## dict
+        sent_completion_dict=get_sentence_completions(paraphrase)#, option=Q7)   ## dict
         return sent_completion_dict
 
     def get_false_paraphrase(self, sent_completion_dict:dict)->list:
@@ -500,75 +504,180 @@ class Q7:
             false_paraphrase_cnt += 1
         return false_paraphrase
 
-    def make_new_passage(self, passage:str, origin_sentence:str, false_sentence:str)->str:
-        if origin_sentence in passage:
-            new_passage=passage.replace(origin_sentence, false_sentence)
-            return new_passage  ## str
-        else: print('No result');return None
+    def make_new_passage(self, passage:str, origin_list:list, false_list:list, answer:int)->str:
+        new_passage=''+passage
+        for i in range(len(origin_list)):
+            origin=origin_list[i]
+
+            if i+1==answer:
+                new='('+str(i+1)+') '+false_list[i]
+            else:
+                new='('+str(i+1)+') '+origin
+            
+            if origin in passage:
+                new_passage=new_passage.replace(origin, new)
+            else:
+                new_passage=new_passage.lower().replace(origin.lower(), new)
+
+        return new_passage
+
 
 
     def make_dict(self, passageID)->dict:
         question_dict=question_dict_sample.copy()
         question_dict['passageID']=int(passageID)
         question_dict['question_type']=self.question_type
-        question_dict['question'] = self.question
+        question_dict['question'] = self.question   ## 다음 글에서 전체 흐름과 관계 없는 문장은?
 
         #####################################################
         ## passageID로 passage를 가져오는 코드 있어야 함
         #####################################################
 
         summarize=self.summarize(passage)  ## list
-        # print(summarize)
-        sent_completion_dict=self.get_completion_dict(summarize)
-        # print(sent_completion_dict)
-        false_paraphrase=self.get_false_paraphrase(sent_completion_dict)
-        # print(false_paraphrase)
+        sent_completion_dict=self.get_completion_dict(summarize)    ## dict
+        false_paraphrase=self.get_false_paraphrase(sent_completion_dict)    ## list
 
         ## 랜덤으로 답 뽑기
-        num=random.randint(0, 4)    ## a <= num <= b
-        answer=false_paraphrase[num]    ## 정답
+        ex=[1, 2, 3, 4, 5]
+        answer = random.choice(ex)
+        ex.remove(answer)
 
-        dist_list=summarize.copy()
-        del dist_list[num]
-
-        new_passage=self.make_new_passage(passage, summarize[num], answer)
+        new_passage=self.make_new_passage(passage, summarize, false_paraphrase, answer)
         question_dict['new_passage']=new_passage
     
-        question_dict['answer']=answer
-        question_dict['d1']=dist_list[0]
-        question_dict['d2']=dist_list[1]
-        question_dict['d3']=dist_list[2]
-        question_dict['d4']=dist_list[3]
+        question_dict['answer']=str(answer)
+        question_dict['d1']=str(ex[0])
+        question_dict['d2']=str(ex[1])
+        question_dict['d3']=str(ex[2])
+        question_dict['d4']=str(ex[3])
 
         return question_dict
-#%%
+#%% 지울것 !!!
+def get_keyword_list(passage, max_word_cnt,top_n, option=None)->list:
+    result=[]
+    # option=None
+    if type(passage)==list:
+        for sentence in passage:
+            kwd=kw_model.extract_keywords(sentence, keyphrase_ngram_range=(1,max_word_cnt), stop_words='english', top_n=top_n)
+            for i in range(len(kwd)):   ## 점수 빼고 단어만
+                kwd[i]=kwd[i][0]
+            if option==None:result.append(kwd)
+            elif option=='Q8':result.append(kwd)
+        # print(result)
+        if option=='Q8':
+            tmp=1;tmp_list=[]
+            for a in result[0]:
+                for b in result[1]:
+                    similarity=word_similarity(a, b)
+                    # print(a, b, similarity)
+                    if similarity<tmp:
+                        tmp=similarity; tmp_list=[a, b]  
+            # print(tmp_list)
+            result=tmp_list
+                        
+    elif type(passage)==str:
+        kwd=kw_model.extract_keywords(passage, keyphrase_ngram_range=(1, max_word_cnt), stop_words='english', top_n=top_n)
+        for i in range(len(kwd)):   ## 점수 빼고 단어만
+                kwd[i]=kwd[i][0]
+        result=kwd
 
-#%% 40 글의 내용 요약하고 빈칸 2개 단어 고르기
-# http://datageek.fr/abstractive-summarization-with-huggingface-pre-trained-models/
-# https://huggingface.co/docs/transformers/v4.21.0/en/main_classes/pipelines#transformers.SummarizationPipeline
-'''
-class Q7:
+    return result
+#%% 지우기 !!
+class Pyphones:
+    
     def __init__(self):
-        # self.summarizer = pipeline("summarization", model="Blaise-g/led_finetuned_sumpubmed")
-        # self.question_type=7
-        # self.question='다음 글의 내용을 요약하려고 한다. 빈칸 (A), (B)에 들어갈 말로 적절한 것은?'
-        # self.question='다음 글의 내용을 한 문장으로 요약하려고 한다. 빈칸 (A), (B)에 들어갈 말로 적절한 것은?'
-        None
-    def abstractive_summarize(self, passage:str)->list:
-        summarize = self.summarizer(passage, min_length=25, max_length=50) ## list[dict]
-        summary=summarize[0].get('summary_text')   ## str
-        print('summary:\n'+summary)
-        return [summary]
+        self.url = "https://www.homophone.com/search?page={}&type=&q={}"
+        
+    def get_the_page(self, word, page_no=1 ):
+        """
+        Get the page content.
+        Returns
+            str: the content of the page.
+        """
+        url = self.url.format(page_no, word)
+        r = requests.get(url)
+        soup = BeautifulSoup(r.content, "html.parser")
+        return soup
+
+    def get_the_page_nos(self, word):
+        """
+        Get the total number of pages
+        Returns
+            int: the total number of the pages.
+        """
+        soup = self.get_the_page(word)
+        pages = soup.find_all('div', attrs={'class':'col-sm-9'})
+        total_pages = pages[0].find('h5').text.split('/')[-1].strip()
+        return int(total_pages)
+
+    def get_the_homophones(self, word):
+        """
+        Get the homophones of the word.
+        Returns
+            dict: {word: [list_of_homophones]} against each word.
+        """
+        total_pages = self.get_the_page_nos(word)
+        for ix in range(total_pages):
+            page_no = ix + 1
+            soup = self.get_the_page(word, page_no)
+            raw_homophones = soup.find_all('div', attrs={'class': 'well well-lg'})
+            for elem in range(len(raw_homophones)):
+                raw_homophones_2 = raw_homophones[elem].find_all('a', attrs={'class': 'btn word-btn'})
+                list_of_homophones = list(raw_homophones_2)
+                if any(list_of_homophones):
+                    local_homophones = []
+                    for tag_of_homophone in list_of_homophones:
+                        homophone = tag_of_homophone.text
+                        local_homophones.append(homophone)
+        return local_homophones
+#%% 40 글의 내용 요약하고 빈칸 2개 단어 고르기
+## https://huggingface.co/docs/transformers/v4.21.0/en/main_classes/pipelines#transformers.SummarizationPipeline
+
+class Q8:
+    def __init__(self):
+        self.question_type=8
+        self.question='다음 글의 내용을 요약하고자 한다. 빈칸 (A), (B)에 들어갈 말로 가장 적절한 것은?'
+
+    def summarize(self, passage:str, num_sentence=2)->list:
+        return summary(passage, num_sentences=num_sentence)
 
     def paraphrase(self, summary:list)->list:
-        paraphrase=paraphrasing_by_transe(summary)
-        print('paraphrase:\n')
-        print(paraphrase)
-        
-        return paraphrase
+        return paraphrasing_by_transe(summary)
 
-    def get_keyword(self, ):
-        None
+    def get_keyword(self, paraphrase:list, option='Q8') ->list:
+        if option=='Q8':    ## option=='Q8' 인 경우 무조건 top_n==2
+            top_n=2
+        keyword_list= get_keyword_list(paraphrase, max_word_cnt=1, top_n=top_n, option=option)
+        return keyword_list
+
+    # def get_distractors(self, keyword:list)->list:    ## 오답 단어 4개 만들기
+    #     wd=word_dict()
+    #     py = Pyphones()
+
+    #     distractors=[]
+    #     for kwd in keyword:
+    #         synonym_list=get_synonym_list(kwd, num_word=1)  ## 어려운 오답(유의어)
+    #         homophones_list=py.get_the_homophones(kwd)
+    #         print(synonym_list, homophones_list)
+    #         # distractors=sum(antonym_list,[]) ## sum( 덧셈할 것, 처음에 더할 것)
+    #         # distractors=sum(synonym_list,distractors) ## sum( 덧셈할 것, 처음에 더할 것)
+
+    #     print(distractors)
+
+    #     return distractors
+
+    def make_new_passage(self, passage:str, paraphrase:list, keyword:list)->str:
+        new_passage=passage+'\n\n==>'
+        new_paraphrase=[]
+        for i in range(len(paraphrase)):
+            if keyword[i] in paraphrase[i]:
+                if i==0:space='__(A)__'
+                elif i==1:space='__(B)__'
+                else:space='_____'  ## 이게 될 일은 없을걸...?
+                new_paraphrase.append(paraphrase[i].replace(keyword[i],space))
+        for sentence in new_paraphrase:
+            new_passage=new_passage+' '+str(sentence)
+        return new_passage
 
     def make_dict(self, passageID)->dict:
         question_dict=question_dict_sample.copy()
@@ -580,10 +689,26 @@ class Q7:
         ## passageID로 passage를 가져오는 코드 있어야 함
         #####################################################
         
-        summarize=self.abstractive_summarize(passage)   ## list
+        summarize=self.summarize(passage)   ## list
         paraphrase=self.paraphrase(summarize)   ## list
+        keyword=self.get_keyword(paraphrase)    ## list
+        new_passage=self.make_new_passage(passage, paraphrase, keyword)
+        distractors=self.get_distractors(keyword)
+
+        question_dict['new_passage']=new_passage
+
+        question_dict['answer']='(A)'+keyword[0]+' (B)'+keyword[1]
+
+        # question_dict['d1']
+        # question_dict['d2']
+        # question_dict['d3']
+        # question_dict['d4']
+
+        return question_dict
 #%%
-q=Q7()
-print(q.make_dict(2))
-'''
+q8=Q8()
+q8_dict=q8.make_dict(2)
+print(q8_dict)
+# print(q8.make_dict(2))
+
 # %%
